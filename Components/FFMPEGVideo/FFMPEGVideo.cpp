@@ -598,13 +598,11 @@ bool FFMPEGVideo::OpenMovie(wxString csMovieName, void *pVideoWindow, int device
 		for (i = 0;; i++) {
 			const AVCodecHWConfig* config = avcodec_get_hw_config(decoder, i);
 			if (!config) {
-				wxString msg;
-				msg.Printf(wxT("Decoder %s does not support device type %s."),
-					wxString(decoder->name), wxString(av_hwdevice_get_type_name(type)));
-				SaveToReportLog(wxString::Format(wxT("FFMPEGVideo::OpenMovie(): %s\n"), msg));
-				wxMessageBox(msg, wxT("FFMPEGVideo::OpenMovie"));
+				SaveToReportLog(wxString::Format(wxT("FFMPEGVideo::OpenMovie(): Decoder %s does not support device type %s, falling back to CPU.\n"),
+					wxString(decoder->name), wxString(av_hwdevice_get_type_name(type))));
 				CloseMovie();
-				return false;
+				g_hw_device = wxT("cpu");
+				return OpenMovie(csMovieName, pVideoWindow, type);
 			}
 			if (config->methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX &&
 				config->device_type == type) {
@@ -614,12 +612,11 @@ bool FFMPEGVideo::OpenMovie(wxString csMovieName, void *pVideoWindow, int device
 		}
 
 		if (hw_pix_fmt == AV_PIX_FMT_NONE) {
-			wxString msg;
-			msg.Printf(wxT("Failed to find decoder HW config with support of device type %s for current video."), wxString(av_hwdevice_get_type_name(type)));
-			SaveToReportLog(wxString::Format(wxT("FFMPEGVideo::OpenMovie(): %s\n"), msg));
-			wxMessageBox(msg, wxT("FFMPEGVideo::OpenMovie"));
+			SaveToReportLog(wxString::Format(wxT("FFMPEGVideo::OpenMovie(): No HW config for device type %s, falling back to CPU.\n"),
+				wxString(av_hwdevice_get_type_name(type))));
 			CloseMovie();
-			return false;
+			g_hw_device = wxT("cpu");
+			return OpenMovie(csMovieName, pVideoWindow, type);
 		}
 		SaveToReportLog(wxT("FFMPEGVideo::OpenMovie(): hw_pix_fmt was found\n"));
 
@@ -720,14 +717,19 @@ bool FFMPEGVideo::OpenMovie(wxString csMovieName, void *pVideoWindow, int device
 		SaveToReportLog(wxT("FFMPEGVideo::OpenMovie(): filt_frame = av_frame_alloc() passed\n"));
 	}		
 
-	if (video->duration > 0)
+	if (video->duration > 0 && video->duration != AV_NOPTS_VALUE)
 	{
 		m_Duration = av_rescale(video->duration, video->time_base.num * 1000, video->time_base.den);
 	}
-	else
+	else if (input_ctx->duration > 0 && input_ctx->duration != AV_NOPTS_VALUE)
 	{
 		m_Duration = (input_ctx->duration * (s64)1000) / (s64)AV_TIME_BASE;
 	}
+	else
+	{
+		m_Duration = -1; // unknown duration — search will run to end of video
+	}
+	SaveToReportLog(wxString::Format(wxT("FFMPEGVideo::OpenMovie(): m_Duration = %lld ms\n"), (long long)m_Duration));
 
 	m_pVideoWindow = pVideoWindow;
 	m_pVideoWindow ? m_show_video = true : m_show_video = false;
@@ -806,10 +808,12 @@ bool FFMPEGVideo::CloseMovie()
 	if (filter_graph) avfilter_graph_free(&filter_graph);
 	if (decoder_ctx) avcodec_free_context(&decoder_ctx);
 	if (input_ctx) avformat_close_input(&input_ctx);
-	if (hw_device_ctx) av_buffer_unref(&hw_device_ctx);	
+	if (hw_device_ctx) av_buffer_unref(&hw_device_ctx);
 	if (frame) av_frame_free(&frame);
 	if (sw_frame) av_frame_free(&sw_frame);
-	if (filt_frame) av_frame_free(&filt_frame);	
+	if (filt_frame) av_frame_free(&filt_frame);
+	if (m_sws_ctx) { sws_freeContext(m_sws_ctx); m_sws_ctx = NULL; }
+	if (m_sws_roi_ctx) { sws_freeContext(m_sws_roi_ctx); m_sws_roi_ctx = NULL; }
 	av_packet_unref(&packet);
 
 	filter_graph = NULL;
@@ -822,6 +826,12 @@ bool FFMPEGVideo::CloseMovie()
 
 	m_start_pts = 0;
 	m_frame_buffer_size = -1;
+	m_sws_src_fmt = AV_PIX_FMT_NONE;
+	m_sws_src_w = 0;
+	m_sws_src_h = 0;
+	m_sws_roi_src_fmt = AV_PIX_FMT_NONE;
+	m_sws_roi_w = 0;
+	m_sws_roi_h = 0;
 	m_origWidth = 0;
 	m_origHeight = 0;
 	m_Width = 0;
@@ -982,26 +992,22 @@ inline int FFMPEGVideo::convert_to_dst_format(u8* frame_data, uint8_t* const dst
 		}
 		else
 		{
-			// convert to destination format
-
-			SwsContext* sws_ctx = sws_getContext(
-				m_origWidth,
-				m_origHeight,
-				src_fmt,
-				m_Width,
-				m_Height,
-				dest_fmt,
-				SWS_BILINEAR,
-				NULL,
-				NULL,
-				NULL
-			);			
-
-
-			if (sws_ctx)
+			// Recreate cached sws context only when parameters change
+			if (!m_sws_ctx || m_sws_src_fmt != src_fmt || m_sws_src_w != m_origWidth || m_sws_src_h != m_origHeight)
 			{
-				ret = sws_scale(sws_ctx, src_data, src_linesize, 0, m_origHeight, dst_data, dst_linesize);
-				sws_freeContext(sws_ctx);
+				if (m_sws_ctx) sws_freeContext(m_sws_ctx);
+				m_sws_ctx = sws_getContext(
+					m_origWidth, m_origHeight, src_fmt,
+					m_Width, m_Height, dest_fmt,
+					SWS_BILINEAR, NULL, NULL, NULL);
+				m_sws_src_fmt = src_fmt;
+				m_sws_src_w = m_origWidth;
+				m_sws_src_h = m_origHeight;
+			}
+
+			if (m_sws_ctx)
+			{
+				ret = sws_scale(m_sws_ctx, src_data, src_linesize, 0, m_origHeight, dst_data, dst_linesize);
 			}
 		}
 	}
@@ -1013,57 +1019,85 @@ inline int FFMPEGVideo::convert_to_dst_format(u8* frame_data, uint8_t* const dst
 
 int FFMPEGVideo::ConvertToBGR(u8* frame_data, simple_buffer<u8>& ImBGR, int xmin, int xmax, int ymin, int ymax)
 {
-	int ret;
-	AVPixelFormat dest_fmt = AV_PIX_FMT_BGR24;
-	uint8_t* dst_data[4] = { NULL };
-	int dst_linesize[4];
+	// Align ROI to 2-pixel boundaries (required for YUV 4:2:0 subsampling)
+	int roi_x = xmin & ~1;
+	int roi_y = ymin & ~1;
+	int roi_w = (xmax - roi_x + 2) & ~1;
+	int roi_h = (ymax - roi_y + 2) & ~1;
 
-	/* buffer is going to be written to rawvideo file, no alignment */
-	if ((ret = av_image_alloc(dst_data, dst_linesize,
-		m_Width, m_Height, dest_fmt, 1)) < 0) {
-		custom_assert(ret > 0, "FFMPEGVideo::ConvertToBGR\nCould not allocate memory for destination image.");
+	// Clamp to frame bounds
+	roi_w = std::min(roi_w, (int)m_origWidth - roi_x);
+	roi_h = std::min(roi_h, (int)m_origHeight - roi_y);
+
+	// Set up full-frame plane pointers (zero-copy: just pointer into m_frame_buffer)
+	uint8_t* src_data[4] = { NULL };
+	int src_linesize[4] = { 0 };
+	int ret = av_image_fill_arrays(src_data, src_linesize, frame_data, src_fmt, m_origWidth, m_origHeight, 1);
+	if (ret < 0) return ret;
+
+	// Shift pointers to ROI start — no data copied, just pointer arithmetic
+	uint8_t* roi_data[4] = { NULL };
+	int roi_linesize[4] = { 0 };
+	roi_data[0] = src_data[0] + roi_y * src_linesize[0] + roi_x;
+	roi_linesize[0] = src_linesize[0];
+	if (src_data[1]) {
+		// NV12/NV21: interleaved UV plane, 2x subsampled in both dimensions
+		roi_data[1] = src_data[1] + (roi_y / 2) * src_linesize[1] + roi_x;
+		roi_linesize[1] = src_linesize[1];
+	}
+	if (src_data[2]) {
+		// YUV420P: separate U and V planes
+		roi_data[2] = src_data[2] + (roi_y / 2) * src_linesize[2] + (roi_x / 2);
+		roi_linesize[2] = src_linesize[2];
+	}
+	if (src_data[3]) {
+		roi_data[3] = src_data[3] + (roi_y / 2) * src_linesize[3] + (roi_x / 2);
+		roi_linesize[3] = src_linesize[3];
 	}
 
-	if (ret > 0)
+	// Recreate ROI sws context if size or format changed
+	if (!m_sws_roi_ctx || m_sws_roi_src_fmt != src_fmt || m_sws_roi_w != roi_w || m_sws_roi_h != roi_h)
 	{
-		ret = convert_to_dst_format(frame_data, dst_data, dst_linesize, dest_fmt);
+		if (m_sws_roi_ctx) sws_freeContext(m_sws_roi_ctx);
+		m_sws_roi_ctx = sws_getContext(
+			roi_w, roi_h, src_fmt,
+			roi_w, roi_h, AV_PIX_FMT_BGR24,
+			SWS_BILINEAR, NULL, NULL, NULL);
+		m_sws_roi_src_fmt = src_fmt;
+		m_sws_roi_w = roi_w;
+		m_sws_roi_h = roi_h;
 	}
 
-	if (ret > 0)
+	if (!m_sws_roi_ctx) return -1;
+
+	// Write directly into ImBGR — no intermediate full-frame BGR buffer allocated
+	int out_w = xmax - xmin + 1;
+	int out_h = ymax - ymin + 1;
+	custom_assert(ImBGR.m_size >= out_w * out_h * 3, "FFMPEGVideo::ConvertToBGR not: ImBGR.m_size >= out_w * out_h * 3");
+
+	// Grow cached ROI BGR buffer only when needed — never alloc per-frame
+	int roi_bgr_size = roi_w * roi_h * 3;
+	if (m_roi_bgr_buf.m_size < roi_bgr_size)
+		m_roi_bgr_buf.set_size(roi_bgr_size);
+
+	uint8_t* dst_data[4] = { m_roi_bgr_buf.m_pData, NULL, NULL, NULL };
+	int dst_linesize[4] = { roi_w * 3, 0, 0, 0 };
+
+	ret = sws_scale(m_sws_roi_ctx, roi_data, roi_linesize, 0, roi_h, dst_data, dst_linesize);
+	if (ret <= 0) return ret;
+
+	// Copy exact requested ROI (offset within aligned ROI result)
+	int dx = xmin - roi_x;
+	int dy = ymin - roi_y;
+	for (int y = 0; y < out_h; y++)
 	{
-		int w, h, x, y, i, j, di;		
-
-		w = xmax - xmin + 1;
-		h = ymax - ymin + 1;
-
-		di = m_Width - w;
-
-		i = ymin * m_Width + xmin;
-		j = 0;
-
-		custom_assert(ImBGR.m_size >= w * h * 3, "FFMPEGVideo::ConvertToBGR not: ImBGR.m_size >= w * h * 3");
-
-
-		if (w == m_Width)
-		{
-			ImBGR.copy_data(dst_data[0], j * 3, i * 3, w * h * 3);
-		}
-		else
-		{
-			for (y = 0; y < h; y++)
-			{
-				ImBGR.copy_data(dst_data[0], j * 3, i * 3, w * 3);
-				j += w;
-				i += m_Width;
-			}
-		}
-
-		UpdateImageColor(ImBGR, w, h);
+		memcpy(ImBGR.m_pData + y * out_w * 3,
+			   m_roi_bgr_buf.m_pData + (dy + y) * roi_w * 3 + dx * 3,
+			   out_w * 3);
 	}
 
-	if (dst_data[0]) av_freep(&dst_data[0]);
-
-	return ret;
+	UpdateImageColor(ImBGR, out_w, out_h);
+	return 1;
 }
 
 /////////////////////////////////////////////////////////////////////////////

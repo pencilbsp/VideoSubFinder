@@ -80,8 +80,10 @@ else()
 		swscale
 		avfilter
 		tbb
-		X11
 	)
+	if(NOT APPLE)
+		target_link_libraries(VideoSubFinderWXW PUBLIC X11)
+	endif()
 endif (WIN32)
 
 

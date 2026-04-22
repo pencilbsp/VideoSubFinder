@@ -682,8 +682,15 @@ void CVideoBox::Init()
 	int w = wxSystemSettings::GetMetric(wxSYS_SCREEN_X);
 	int h = wxSystemSettings::GetMetric(wxSYS_SCREEN_Y);
 
+#ifdef __APPLE__
+	// On macOS, ShowFullScreen() triggers native fullscreen Space and hides the
+	// menubar even on hidden windows. Use a borderless window instead.
+	m_pFullScreenWin = new wxFrame(m_pMF, wxID_ANY, wxT(""), wxPoint(0, 0), wxSize(w, h),
+		wxFRAME_NO_TASKBAR | wxFRAME_FLOAT_ON_PARENT | wxBORDER_NONE);
+#else
 	m_pFullScreenWin = new wxFrame(m_pMF, wxID_ANY, wxT(""), wxPoint(0,0), wxSize(w, h), wxFRAME_NO_TASKBAR | wxFRAME_FLOAT_ON_PARENT);
 	m_pFullScreenWin->ShowFullScreen(true);
+#endif
 	m_pFullScreenWin->Hide();
 
 	this->SetBackgroundColour(g_cfg.m_video_image_box_border_colour);
@@ -1071,7 +1078,7 @@ void CVideoBox::OnKeyUp(wxKeyEvent& event)
 				if (m_timer.IsRunning())
 				{
 					m_timer.Stop();
-					wxTimerEvent te;
+					wxTimerEvent te(m_timer);
 					this->OnTimer(te);
 				}
 			}

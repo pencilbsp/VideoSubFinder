@@ -19,6 +19,9 @@
 #include <wx/regex.h>
 #include <opencv2/core.hpp>
 #include <opencv2/core/ocl.hpp>
+#ifdef __APPLE__
+#include <sys/sysctl.h>
+#endif
 
 #ifdef CUSTOM_TA 
 #include "ittnotify.h"
@@ -1183,6 +1186,17 @@ s64 FastSearchSubtitles(CVideo *pV, s64 Begin, s64 End)
 	{
 		g_threads = std::thread::hardware_concurrency();
 
+#ifdef __APPLE__
+		// On Apple Silicon, use only performance cores (half of logical cores on M-series)
+		// to avoid scheduling on efficiency cores which can slow down parallel work
+		{
+			int32_t p_cores = 0;
+			size_t size = sizeof(p_cores);
+			if (sysctlbyname("hw.perflevel0.logicalcpu", &p_cores, &size, NULL, 0) == 0 && p_cores > 0)
+				g_threads = p_cores;
+		}
+#endif
+
 #ifdef WINX86
 		if (g_threads > 12)
 		{
@@ -1227,18 +1241,20 @@ s64 FastSearchSubtitles(CVideo *pV, s64 Begin, s64 End)
 
 	prevPos = -2;
 
-	RunSearch rs(threads, pV);	
-	
+	RunSearch rs(threads, pV);
+
 	const int ddl = (DL / 2);
 	const int ddl1_ofset = ddl - 1;
 	const int ddl2_ofset = (ddl * 2) - 1;
 
 	int fn_start;
-		
+
 	fn_start = fn;
 	max_rgb_fn = -1;
 
-	while (((CurPos < End) || (End < 0)) && (g_RunSubSearch == 1) && (CurPos != prevPos))
+	SaveToReportLog(wxString::Format(wxT("FastSearchSubtitles: Begin=%lld End=%lld CurPos=%lld prevPos=%lld g_RunSubSearch=%d\n"), (long long)Begin, (long long)End, (long long)CurPos, (long long)prevPos, (int)g_RunSubSearch));
+
+	while (((CurPos < End) || (End <= 0)) && (g_RunSubSearch == 1) && (CurPos != prevPos))
 	{
 		int create_new_threads = threads;	
 
@@ -1250,7 +1266,7 @@ s64 FastSearchSubtitles(CVideo *pV, s64 Begin, s64 End)
 		}
 #endif
 
-		while ((found_sub == 0) && ((CurPos < End) || (End < 0)) && (CurPos != prevPos) && (g_RunSubSearch == 1))
+		while ((found_sub == 0) && ((CurPos < End) || (End <= 0)) && (CurPos != prevPos) && (g_RunSubSearch == 1))
 		{
 			prevPos = CurPos;
 
@@ -2843,7 +2859,8 @@ s64 GetVideoTime(wxString time)
 	}
 	else
 	{
-		wxASSERT_MSG(sscanf(time.c_str(), "%d:%d:%d:%d", &hour, &min, &sec, &msec) == 4, wxString::Format(wxT("Wrong video time format '%s'"), time.c_str()));
+		int _n = wxSscanf(time, wxT("%d:%d:%d:%d"), &hour, &min, &sec, &msec);
+		wxASSERT_MSG(_n == 4, wxString::Format(wxT("Wrong video time format '%s'"), time.c_str()));
 		res = (s64)(((hour * 60 + min) * 60 + sec) * 1000 + msec);
 	}
 	return res;

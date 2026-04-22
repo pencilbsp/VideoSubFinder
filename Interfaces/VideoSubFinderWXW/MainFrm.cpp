@@ -16,6 +16,7 @@
 
 #include "MainFrm.h"
 #include <wx/filename.h>
+#include <wx/display.h>
 #include <wx/stdpaths.h>
 #include <wx/wfstream.h>
 #include <wx/txtstrm.h>
@@ -581,7 +582,14 @@ void CMainFrame::Init()
 
 	if (g_cfg.m_vsf_is_maximized)
 	{
+#ifdef __APPLE__
+		// On macOS wxFrame::Maximize() triggers fullscreen (hides menubar).
+		// Instead, resize to fill the work area (screen minus menubar/dock).
+		wxRect workArea = wxDisplay(wxDisplay::GetFromWindow(this)).GetClientArea();
+		this->SetSize(workArea);
+#else
 		this->Maximize();
+#endif
 	}
 	else if ((g_cfg.m_vsf_x >= 0) &&
 		(g_cfg.m_vsf_y >= 0) &&
@@ -960,14 +968,17 @@ void CMainFrame::OnFileOpenVideo(int type)
 	get_video_box_lblVB_open_video_title();
 	m_pVideoBox->m_plblVB->SetLabel(g_cfg.m_video_box_lblVB_title);
 
-	if (m_blnReopenVideo == false) 
+	if (m_blnReopenVideo == false)
 	{
 		m_BegTime = 0;
-		m_EndTime = m_pVideo->m_Duration;
+		// m_Duration <= 0 means unknown — use -1 so FastSearchSubtitles runs to EOF
+		m_EndTime = (m_pVideo->m_Duration > 0) ? m_pVideo->m_Duration : -1;
 	}
 
+	SaveToReportLog(wxString::Format(wxT("MainFrm: m_blnReopenVideo=%d m_Duration=%lld m_EndTime=%lld\n"), (int)m_blnReopenVideo, (long long)m_pVideo->m_Duration, (long long)m_EndTime));
 	m_pPanel->m_pSHPanel->m_plblBTA1->SetValue(ConvertVideoTime(m_BegTime));
 	m_pPanel->m_pSHPanel->m_plblBTA2->SetValue(ConvertVideoTime(m_EndTime));
+	SaveToReportLog(wxString::Format(wxT("MainFrm: BTA2 after SetValue='%s'\n"), m_pPanel->m_pSHPanel->m_plblBTA2->GetValue()));
 
 	m_w = m_pVideo->m_Width;
 	m_h = m_pVideo->m_Height;
@@ -1079,7 +1090,7 @@ void CMainFrame::OnFileOpenVideo(int type)
 	{
 		m_ct = -1;
 
-		wxTimerEvent event;
+		wxTimerEvent event(m_timer);
 		CMainFrame::OnTimer(event);
 		
 		m_timer.Start(100);

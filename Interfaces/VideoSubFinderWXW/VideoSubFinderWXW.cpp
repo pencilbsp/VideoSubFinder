@@ -19,8 +19,9 @@
 #include <wx/wfstream.h>
 #include <wx/txtstrm.h>
 
-#ifndef WIN32
+#if !defined(WIN32) && !defined(__APPLE__)
 #include <X11/Xlib.h>
+#define HAVE_XLIB 1
 #endif
 
 wxString g_ReportFileName;
@@ -178,7 +179,7 @@ void test()
 
 bool CVideoSubFinderApp::Initialize(int& argc, wxChar **argv)
 {
-#ifndef WIN32
+#ifdef HAVE_XLIB
 	XInitThreads();
 #endif
 

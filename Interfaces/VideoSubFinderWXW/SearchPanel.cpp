@@ -269,6 +269,7 @@ void CSearchPanel::OnBnClickedRun(wxCommandEvent& event)
 
 		m_pMF->m_BegTime = GetVideoTime(m_plblBTA1->GetValue());
 		m_pMF->m_EndTime = GetVideoTime(m_plblBTA2->GetValue());
+		SaveToReportLog(wxString::Format(wxT("OnBnClickedRun: BTA1='%s' BTA2='%s' BegTime=%lld EndTime=%lld\n"), m_plblBTA1->GetValue(), m_plblBTA2->GetValue(), (long long)m_pMF->m_BegTime, (long long)m_pMF->m_EndTime));
 
 		if (m_pMF->m_pVideo->SetNullRender())
 		{
@@ -294,7 +295,7 @@ void CSearchPanel::OnBnClickedRun(wxCommandEvent& event)
 		if (g_IsSearching == 1)
 		{
 			m_pMF->m_timer.Stop();
-			wxTimerEvent event;
+			wxTimerEvent event(m_pMF->m_timer);
 			m_pMF->OnTimer(event);
 
 			g_RunSubSearch = 0;
@@ -361,7 +362,7 @@ void CSearchPanel::ThreadSearchSubtitlesEnd(wxCommandEvent& event)
 		if (g_RunSubSearch == 1)
 		{
 			m_pMF->m_timer.Stop();
-			wxTimerEvent event;
+			wxTimerEvent event(m_pMF->m_timer);
 			m_pMF->OnTimer(event);
 		}
 		else

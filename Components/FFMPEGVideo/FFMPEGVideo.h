@@ -107,6 +107,21 @@ public:
 
 	AVPixelFormat src_fmt;
 
+	// sws context for full-frame display path
+	SwsContext* m_sws_ctx = NULL;
+	AVPixelFormat m_sws_src_fmt = AV_PIX_FMT_NONE;
+	int m_sws_src_w = 0;
+	int m_sws_src_h = 0;
+
+	// sws context for ROI-only ConvertToBGR path (zero-copy crop)
+	SwsContext* m_sws_roi_ctx = NULL;
+	AVPixelFormat m_sws_roi_src_fmt = AV_PIX_FMT_NONE;
+	int m_sws_roi_w = 0;
+	int m_sws_roi_h = 0;
+
+	// Cached BGR output buffer for ROI conversion (avoid per-frame heap alloc)
+	simple_buffer<u8> m_roi_bgr_buf;
+
 	//DWORD min_dt = 1000;
 	//DWORD max_dt = 0;
 
