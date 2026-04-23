@@ -15,6 +15,8 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 #include "SeparatingLine.h"
+#include <algorithm>
+#include <cmath>
 
 BEGIN_EVENT_TABLE(CSeparatingLine, wxWindow)
 	EVT_PAINT(CSeparatingLine::OnPaint)
@@ -51,6 +53,9 @@ CSeparatingLine::CSeparatingLine(wxWindow* parent, int w, int h, int sw, int sh,
 	m_pos = 0;
 	m_pos_min = 0;
 	m_pos_max = 1;
+	m_symmetric_drag_lower_side = true;
+	m_symmetric_drag_center = 0.5;
+	m_symmetric_drag_min_gap = 0.05;
 
 	wxRect rc;
 
@@ -201,6 +206,12 @@ void CSeparatingLine::CreateNewRgn()
 void CSeparatingLine::OnLButtonDown( wxMouseEvent& event )
 {
 	m_bDown = true;
+	if (m_pOppositeLine)
+	{
+		m_symmetric_drag_lower_side = (m_pos <= m_pOppositeLine->m_pos);
+		m_symmetric_drag_center = (m_pos + m_pOppositeLine->m_pos) / 2.0;
+		m_symmetric_drag_min_gap = GetMinimumOppositeGap();
+	}
 	this->CaptureMouse();
 }
 
@@ -230,13 +241,55 @@ void CSeparatingLine::OnMouseMove( wxMouseEvent& event )
 		wxPoint pt = this->GetPosition();
 		wxSize border = this->GetWindowBorderSize();
 
-		MoveSL( wxPoint(pt.x + border.GetWidth() + event.m_x, pt.y + border.GetHeight() + event.m_y) );
+		MoveSL(wxPoint(pt.x + border.GetWidth() + event.m_x,
+			pt.y + border.GetHeight() + event.m_y), event.ShiftDown());
 	}
 }
 
-void CSeparatingLine::MoveSL(wxPoint pt)
+double CSeparatingLine::GetMinimumOppositeGap()
+{
+	if (!m_pOppositeLine)
+	{
+		return 0.0;
+	}
+
+	double current_gap = std::abs(m_pOppositeLine->m_pos - m_pos);
+	if (current_gap <= 0.0)
+	{
+		return 0.0;
+	}
+
+	double gap = 0.05;
+	if (m_pos <= m_pOppositeLine->m_pos)
+	{
+		if (m_pos_max < m_pOppositeLine->m_pos)
+		{
+			gap = std::max(gap, m_pOppositeLine->m_pos - m_pos_max);
+		}
+		if (m_pOppositeLine->m_pos_min > m_pos)
+		{
+			gap = std::max(gap, m_pOppositeLine->m_pos_min - m_pos);
+		}
+	}
+	else
+	{
+		if (m_pos_min > m_pOppositeLine->m_pos)
+		{
+			gap = std::max(gap, m_pos_min - m_pOppositeLine->m_pos);
+		}
+		if (m_pOppositeLine->m_pos_max < m_pos)
+		{
+			gap = std::max(gap, m_pos - m_pOppositeLine->m_pos_max);
+		}
+	}
+
+	return std::min(gap, current_gap);
+}
+
+void CSeparatingLine::MoveSL(wxPoint pt, bool symmetric)
 {
 	int val;
+	double new_pos;
 
 	if (m_orientation == 0)
 		val = pt.y;
@@ -245,22 +298,56 @@ void CSeparatingLine::MoveSL(wxPoint pt)
 
 	if (val > m_max)
 	{
-		m_pos = 1;
+		new_pos = 1;
 	}
 	else
 	{
 		if (val < m_min)
 		{
-			m_pos = 0;
+			new_pos = 0;
 		}
 		else
 		{
-			m_pos = (double)(val-m_min)/(double)(m_max-m_min);
+			new_pos = (double)(val-m_min)/(double)(m_max-m_min);
 		}
 	}
 
-	if (m_pos < m_pos_min) m_pos = m_pos_min;
-	if (m_pos > m_pos_max) m_pos = m_pos_max;
+	if (new_pos < m_pos_min) new_pos = m_pos_min;
+	if (new_pos > m_pos_max) new_pos = m_pos_max;
+
+	if (symmetric && m_pOppositeLine)
+	{
+		double min_pos = std::max(m_pos_min, 2.0 * m_symmetric_drag_center - m_pOppositeLine->m_pos_max);
+		double max_pos = std::min(m_pos_max, 2.0 * m_symmetric_drag_center - m_pOppositeLine->m_pos_min);
+		double half_gap = m_symmetric_drag_min_gap / 2.0;
+
+		if (m_symmetric_drag_lower_side)
+		{
+			max_pos = std::min(max_pos, m_symmetric_drag_center - half_gap);
+		}
+		else
+		{
+			min_pos = std::max(min_pos, m_symmetric_drag_center + half_gap);
+		}
+
+		if (min_pos > max_pos)
+		{
+			new_pos = m_pos;
+		}
+		else
+		{
+			new_pos = std::max(min_pos, std::min(max_pos, new_pos));
+			m_pos = new_pos;
+			m_pOppositeLine->m_pos = 2.0 * m_symmetric_drag_center - m_pos;
+			if (m_pOppositeLine->m_pos < m_pOppositeLine->m_pos_min) m_pOppositeLine->m_pos = m_pOppositeLine->m_pos_min;
+			if (m_pOppositeLine->m_pos > m_pOppositeLine->m_pos_max) m_pOppositeLine->m_pos = m_pOppositeLine->m_pos_max;
+			m_pOppositeLine->UpdateSL();
+		}
+	}
+	else
+	{
+		m_pos = new_pos;
+	}
 
 	UpdateSL();
 }

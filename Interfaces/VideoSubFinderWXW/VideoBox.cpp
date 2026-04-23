@@ -486,6 +486,11 @@ void CVideoWindow::Init()
 	m_pVSL2 = new CSeparatingLine(this, 3, 100, 3, 7, 140, 150, 50, 1, g_cfg.m_video_box_separating_line_colour, g_cfg.m_video_box_separating_line_border_colour);
 	m_pVSL2->m_pos = 1;
 
+	m_pHSL1->m_pOppositeLine = m_pHSL2;
+	m_pHSL2->m_pOppositeLine = m_pHSL1;
+	m_pVSL1->m_pOppositeLine = m_pVSL2;
+	m_pVSL2->m_pOppositeLine = m_pVSL1;
+
 	m_pHSL1->Raise();
 	m_pHSL2->Raise();
 	m_pVSL1->Raise();

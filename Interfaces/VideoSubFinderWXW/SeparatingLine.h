@@ -47,6 +47,7 @@ public:
 	double	m_pos;
 	double	m_pos_min;
 	double	m_pos_max;
+	CSeparatingLine* m_pOppositeLine = NULL;
 
 	wxWindow* m_pParent;
 	wxRegion m_rgn;
@@ -54,13 +55,17 @@ public:
 	wxColour m_border_colour;
 
 	bool	m_bDown;
+	bool	m_symmetric_drag_lower_side;
+	double	m_symmetric_drag_center;
+	double	m_symmetric_drag_min_gap;
 
 public:
 	void CreateNewRgn();
-	void MoveSL(wxPoint pt);
+	void MoveSL(wxPoint pt, bool symmetric = false);
 	void UpdateSL();
 	double CalculateCurPos();
 	int GetCurPos();
+	double GetMinimumOppositeGap();
 
 public:
 	void	OnPaint( wxPaintEvent &event );
