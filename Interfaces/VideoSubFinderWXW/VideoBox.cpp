@@ -902,9 +902,9 @@ void CVideoBox::OnBnClickedPause(wxCommandEvent& event)
 		if (m_pMF->m_vs != m_pMF->Pause)
 		{
 			m_pMF->m_vs = m_pMF->Pause;			
+			m_pMF->m_pVideo->Pause();
 			m_pButtonPause->Hide();
 			m_pButtonRun->Show();
-			m_pMF->m_pVideo->Pause();
 		}
 	}
 	else
@@ -1004,7 +1004,7 @@ void CVideoBox::OnKeyDown(wxKeyEvent& event)
 				Cur = m_pMF->m_pVideo->GetPos();
 				Cur -= m_pMF->m_dt;
 				if (Cur < 0) Cur = 0;
-				m_pMF->m_pVideo->SetPosFast(Cur);
+				m_pMF->m_pVideo->SetPos(Cur);
 				break;
 			
 			case WXK_DOWN:
@@ -1012,7 +1012,7 @@ void CVideoBox::OnKeyDown(wxKeyEvent& event)
 				Cur = m_pMF->m_pVideo->GetPos();
 				Cur -= m_pMF->m_dt;
 				if (Cur < 0) Cur = 0;
-				m_pMF->m_pVideo->SetPosFast(Cur);
+				m_pMF->m_pVideo->SetPos(Cur);
 				break;
 
 			case WXK_SPACE:				
@@ -1273,7 +1273,7 @@ void CVideoBox::OnHScroll(wxScrollEvent& event)
 
 			if (Pos != Cur)
 			{
-				m_pMF->m_pVideo->SetPosFast(Pos);
+				m_pMF->m_pVideo->SetPos(Pos);
 			}
 		}
 		else
@@ -1289,10 +1289,8 @@ void CVideoBox::OnHScroll(wxScrollEvent& event)
 				Cur = m_pMF->m_pVideo->GetPos();
 				Cur -= m_pMF->m_dt;
 				if (Cur < 0) Cur = 0;
-				m_pMF->m_pVideo->SetPosFast(Cur);				
+				m_pMF->m_pVideo->SetPos(Cur);				
 			}
 		}
 	}
 }
-
-

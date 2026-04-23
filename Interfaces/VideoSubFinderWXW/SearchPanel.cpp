@@ -29,6 +29,7 @@ BEGIN_EVENT_TABLE(CSearchPanel, wxPanel)
 	EVT_COMMAND(wxID_ANY, THREAD_SEARCH_SUBTITLES_END, CSearchPanel::ThreadSearchSubtitlesEnd)
 	EVT_BUTTON(ID_BTN_CLEAR, CSearchPanel::OnBnClickedClear)
 	EVT_BUTTON(ID_BTN_RUN, CSearchPanel::OnBnClickedRun)
+	EVT_BUTTON(ID_BTN_OPEN_FOLDER, CSearchPanel::OnBnClickedOpenFolder)
 END_EVENT_TABLE()
 
 CSearchPanel::CSearchPanel(CSSOWnd* pParent)
@@ -95,12 +96,16 @@ void CSearchPanel::Init()
 	m_plblBT1->SetSize(rcBT1);
 	wxSize bt1_min_size = rcBT1.GetSize();
 	m_plblBT1->SetMinSize(bt1_min_size);
+	m_plblBT1->Bind(wxEVT_LEFT_UP, &CSearchPanel::OnBeginTimeLabelClick, this);
+	m_plblBT1->m_pST->Bind(wxEVT_LEFT_UP, &CSearchPanel::OnBeginTimeLabelClick, this);
 
 	SaveToReportLog("CSearchPanel::Init(): init m_plblBT2...\n");
 	m_plblBT2 = new CStaticText( m_pP1, g_cfg.m_label_end_time, wxID_ANY);
 	m_plblBT2->SetSize(rcBT2);
 	wxSize bt2_min_size = rcBT2.GetSize();
 	m_plblBT2->SetMinSize(bt2_min_size);
+	m_plblBT2->Bind(wxEVT_LEFT_UP, &CSearchPanel::OnEndTimeLabelClick, this);
+	m_plblBT2->m_pST->Bind(wxEVT_LEFT_UP, &CSearchPanel::OnEndTimeLabelClick, this);
 
 	SaveToReportLog("CSearchPanel::Init(): init m_plblBTA1...\n");
 	m_plblBTA1 = new CTextCtrl(m_pP1, ID_LBL_BEGIN_TIME,
@@ -127,7 +132,24 @@ void CSearchPanel::Init()
 		g_cfg.m_button_run_search_text, rcRun.GetPosition(), rcRun.GetSize() );
 	wxSize run_min_size = rcRun.GetSize();
 	m_pRun->SetMinSize(run_min_size);
-		
+
+	wxArrayString folderItems = GetFolderChoiceItems();
+	m_pFolderChoice = new CChoice(m_pP1, folderItems, &m_folderChoiceIdx, wxID_ANY, wxDefaultPosition, wxSize(-1, 24));
+	wxSize folder_choice_min_size = wxSize(220, 24);
+	m_pFolderChoice->SetMinSize(folder_choice_min_size);
+	m_pFolderChoice->SetFont(m_pMF->m_LBLFont);
+	m_pFolderChoice->SetTextColour(g_cfg.m_main_text_colour);
+	m_pFolderChoice->SetBackgroundColour(g_cfg.m_main_text_ctls_background_colour);
+
+	m_pOpenFolder = new CButton(m_pP1, ID_BTN_OPEN_FOLDER,
+		g_cfg.m_main_buttons_colour, g_cfg.m_main_buttons_colour_focused,
+		g_cfg.m_main_buttons_colour_selected, g_cfg.m_main_buttons_border_colour,
+		g_cfg.m_button_open_folder_text, wxDefaultPosition, wxSize(120, 24));
+	wxSize open_folder_min_size = wxSize(120, 24);
+	m_pOpenFolder->SetMinSize(open_folder_min_size);
+	m_pOpenFolder->SetFont(m_pMF->m_BTNFont);
+	m_pOpenFolder->SetTextColour(g_cfg.m_main_text_colour);
+
 	m_plblBT1->SetBackgroundColour(g_cfg.m_main_labels_background_colour);
 	m_plblBT2->SetBackgroundColour(g_cfg.m_main_labels_background_colour);
 	m_plblBTA1->SetBackgroundColour( g_cfg.m_main_text_ctls_background_colour );
@@ -171,9 +193,15 @@ void CSearchPanel::Init()
 		grid_btns_sizer->Add(m_pClear, 0, wxEXPAND | wxALL);
 		grid_btns_sizer->Add(m_pRun, 0, wxEXPAND | wxALL);
 
+		wxBoxSizer* open_folder_sizer = new wxBoxSizer(wxHORIZONTAL);
+		open_folder_sizer->Add(m_pFolderChoice, 1, wxEXPAND | wxRIGHT, 8);
+		open_folder_sizer->Add(m_pOpenFolder, 0, wxEXPAND);
+
 		vert_box_sizer->Add(grid_lbls_sizer, 0, wxALIGN_CENTER, 0);
 		vert_box_sizer->AddSpacer(10);
 		vert_box_sizer->Add(grid_btns_sizer, 0, wxALIGN_CENTER, 0);
+		vert_box_sizer->AddSpacer(6);
+		vert_box_sizer->Add(open_folder_sizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
 
 		hor_box_sizer->Add(vert_box_sizer, 1, wxALIGN_CENTER);
 
@@ -233,6 +261,18 @@ void CSearchPanel::OnTimeTextEnter(wxCommandEvent& evt)
 			m_pMF->m_pVideo->SetPos(*pTime);
 		}
 	}
+}
+
+void CSearchPanel::OnBeginTimeLabelClick(wxMouseEvent&)
+{
+	wxCommandEvent evt(wxEVT_MENU, ID_EDIT_SETBEGINTIME);
+	m_pMF->OnEditSetBeginTime(evt);
+}
+
+void CSearchPanel::OnEndTimeLabelClick(wxMouseEvent&)
+{
+	wxCommandEvent evt(wxEVT_MENU, ID_EDIT_SETENDTIME);
+	m_pMF->OnEditSetEndTime(evt);
 }
 
 void CSearchPanel::OnBnClickedRun(wxCommandEvent& event)
@@ -304,6 +344,26 @@ void CSearchPanel::OnBnClickedRun(wxCommandEvent& event)
 	}
 }
 
+wxArrayString CSearchPanel::GetFolderChoiceItems()
+{
+	wxArrayString items;
+	items.Add(wxT("RGBImages"));
+	items.Add(wxT("ISAImages"));
+	items.Add(wxT("ILAImages"));
+	items.Add(wxT("TXTImages"));
+	items.Add(wxT("DebugImages"));
+	return items;
+}
+
+void CSearchPanel::OnBnClickedOpenFolder(wxCommandEvent& event)
+{
+	wxArrayString items = GetFolderChoiceItems();
+	if (m_folderChoiceIdx < 0 || m_folderChoiceIdx >= (int)items.GetCount()) return;
+	wxString folder = g_work_dir + wxT("/") + items[m_folderChoiceIdx];
+	if (!wxDirExists(folder)) wxMkdir(folder);
+	wxLaunchDefaultApplication(folder);
+}
+
 void CSearchPanel::OnBnClickedClear(wxCommandEvent& event)
 {
 	m_pMF->ClearDir(g_work_dir + "/RGBImages");
@@ -315,6 +375,10 @@ void CSearchPanel::OnBnClickedClear(wxCommandEvent& event)
 	m_pMF->ClearDir(g_work_dir + "/TXTResults");
 	m_pMF->ClearDir(g_work_dir + "/TestImages/RGBImages");
 	m_pMF->ClearDir(g_work_dir + "/TestImages/TXTImages");
+
+	// Also remove VisionOCR text data file
+	wxString ocr_path = g_work_dir + "/ocr.txt";
+	if (wxFileExists(ocr_path)) wxRemoveFile(ocr_path);
 }
 
 void ThreadSearchSubtitles()
@@ -399,4 +463,3 @@ void CSearchPanel::ThreadSearchSubtitlesEnd(wxCommandEvent& event)
 
 	return;
 }
-

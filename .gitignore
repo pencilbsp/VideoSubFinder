@@ -1,13 +1,6 @@
-# Ignore Everything
-*
-
-# But not:
-!*.cpp
-!*.c
-!*.hpp
-!*.h
-!*.cu
-!.gitignore
-# Or directories
-!*/
-
+# Build artifacts and cached dependencies
+.deps/
+build/
+dist/
+.DS_Store
+*.log

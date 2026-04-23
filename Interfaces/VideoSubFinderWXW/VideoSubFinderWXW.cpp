@@ -186,11 +186,37 @@ bool CVideoSubFinderApp::Initialize(int& argc, wxChar **argv)
 	wxString Str = wxFileName(wxStandardPaths::Get().GetExecutablePath()).GetPath();
 	Str.Replace("\\", "/");
 	g_app_dir = Str;
+
+#ifdef __APPLE__
+	// On macOS, store user data in ~/Library/Application Support/VideoSubFinder/
+	// instead of inside the read-only app bundle.
+	// g_app_dir stays pointing to the bundle for read-only resources (bitmaps, locale, sounds).
+	SetAppName("VideoSubFinder");
+	wxString userDataDir = wxStandardPaths::Get().GetUserDataDir();
+	userDataDir.Replace("\\", "/");
+	wxFileName::Mkdir(userDataDir, wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
+	wxFileName::Mkdir(userDataDir + "/settings", wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
+
+	g_work_dir = userDataDir;
+	g_ReportFileName = userDataDir + wxT("/report.log");
+	g_ErrorFileName = userDataDir + wxT("/error.log");
+	g_GeneralSettingsFileName = userDataDir + wxT("/settings/general.cfg");
+	g_prev_data_path = userDataDir + wxT("/previous_data.inf");
+
+	// First run: copy default general.cfg from bundle if user copy doesn't exist yet
+	if (!wxFileExists(g_GeneralSettingsFileName)) {
+		wxString bundleSettings = g_app_dir + wxT("/settings/general.cfg");
+		if (wxFileExists(bundleSettings)) {
+			wxCopyFile(bundleSettings, g_GeneralSettingsFileName);
+		}
+	}
+#else
 	g_work_dir = g_app_dir;
 	g_ReportFileName = g_app_dir + wxT("/report.log");
 	g_ErrorFileName = g_app_dir + wxT("/error.log");
 	g_GeneralSettingsFileName = g_app_dir + wxT("/settings/general.cfg");
 	g_prev_data_path = g_app_dir + wxT("/previous_data.inf");
+#endif
 
 	SaveToReportLog("Starting program...\n", wxT("wb"));
 	SaveToReportLog("CVideoSubFinderApp::Initialize...\n");

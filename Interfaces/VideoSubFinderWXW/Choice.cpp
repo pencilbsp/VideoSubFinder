@@ -177,4 +177,5 @@ void CChoice::RefreshData()
 void CChoice::SetMinSize(wxSize& size)
 {
 	m_min_size = size;
+	wxChoice::SetMinSize(size);
 }

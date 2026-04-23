@@ -20,7 +20,11 @@
 #include <opencv2/core.hpp>
 #include <opencv2/core/ocl.hpp>
 #ifdef __APPLE__
-#include <sys/sysctl.h>
+#include "vision_ocr.h"
+#include <wx/tokenzr.h>
+#include <wx/wfstream.h>
+#include <wx/txtstrm.h>
+#include <mutex>
 #endif
 
 #ifdef CUSTOM_TA 
@@ -46,7 +50,7 @@ int    g_threads = -1;
 
 int		g_DL = 6;	 //sub frame length
 double	g_tp = 0.3;	 //text percent
-double	g_mtpl = 0.022;  //min text len (in percent)
+double	g_mtpl = 0.010;  //min text len (in percent)
 double	g_veple = 0.30; //vedges points line error
 double	g_ilaple = 0.30; //ILA points line error
 
@@ -610,6 +614,51 @@ public:
 		bool convert_to_lab = m_convert_to_lab;
 
 		m_thrs_save_images.emplace_back(shared_custom_task([ImBGR, ImISA, ImILA, name, w, h, W, H, xmin, xmax, ymin, ymax, convert_to_lab]() mutable {
+#ifdef __APPLE__
+					if (g_vision_ocr_enabled)
+					{
+						cv::Mat cv_ImBGR;
+						BGRImageToMat(ImBGR, w, h, cv_ImBGR);
+						thread_local VisionOCR tl_ocr;
+						tl_ocr.set_min_confidence((float)g_vision_ocr_min_confidence);
+						tl_ocr.set_accurate(g_vision_ocr_accurate);
+						tl_ocr.set_language_correction(g_vision_ocr_language_correction);
+						tl_ocr.set_min_text_height((float)g_vision_ocr_min_text_height);
+						{
+							std::vector<std::string> langs;
+							wxStringTokenizer tk(g_vision_ocr_languages, wxT(","));
+							while (tk.HasMoreTokens()) {
+								wxString t = tk.GetNextToken().Trim(true).Trim(false);
+								if (!t.empty()) langs.push_back(t.ToStdString());
+							}
+							if (!langs.empty()) tl_ocr.set_languages(langs);
+						}
+						auto ocr_results = tl_ocr.recognize(cv_ImBGR);
+					if (ocr_results.empty()) return;
+					// Append recognized OCR text to ocr.txt (format: name|text)
+					{
+						wxString ocr_text;
+						for (const auto& r : ocr_results) {
+							if (!ocr_text.empty()) ocr_text += wxT("\\n");
+							ocr_text += wxString::FromUTF8(r.text);
+						}
+						// Escape literal newlines for single-line storage
+						ocr_text.Replace(wxT("\n"), wxT("\\n"));
+						ocr_text.Replace(wxT("\r"), wxT(""));
+
+						static std::mutex s_ocr_file_mutex;
+						const std::lock_guard<std::mutex> lock(s_ocr_file_mutex);
+						wxString ocr_path = g_work_dir + wxT("/ocr.txt");
+						wxFFileOutputStream ffout(ocr_path, wxT("a"));
+						if (ffout.IsOk()) {
+							wxTextOutputStream fout(ffout, wxEOL_UNIX);
+							fout << name << wxT("|") << ocr_text << wxT("\n");
+							fout.Flush();
+							ffout.Close();
+						}
+					}
+					}
+#endif
 					{
 						simple_buffer<u8> ImTMP_BGR(W * H * 3);
 						ImBGRToNativeSize(ImBGR, ImTMP_BGR, w, h, W, H, xmin, xmax, ymin, ymax);
@@ -1185,17 +1234,6 @@ s64 FastSearchSubtitles(CVideo *pV, s64 Begin, s64 End)
 	if (g_threads <= 0)
 	{
 		g_threads = std::thread::hardware_concurrency();
-
-#ifdef __APPLE__
-		// On Apple Silicon, use only performance cores (half of logical cores on M-series)
-		// to avoid scheduling on efficiency cores which can slow down parallel work
-		{
-			int32_t p_cores = 0;
-			size_t size = sizeof(p_cores);
-			if (sysctlbyname("hw.perflevel0.logicalcpu", &p_cores, &size, NULL, 0) == 0 && p_cores > 0)
-				g_threads = p_cores;
-		}
-#endif
 
 #ifdef WINX86
 		if (g_threads > 12)

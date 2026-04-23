@@ -21,6 +21,7 @@
 #include <vector>
 #include <regex>
 #include <fstream>
+#include <map>
 #include <streambuf>
 #include <wx/wfstream.h>
 #include <wx/txtstrm.h>
@@ -47,6 +48,52 @@ bool g_DontDeleteUnrecognizedImages2 = true;
 wxString g_DefStringForEmptySub;
 
 bool g_CLEAN_RGB_IMAGES = false;
+
+#ifdef __APPLE__
+// Load OCR text map from ocr.txt (format: name|text per line).
+// Cached per call to avoid re-reading the file for every subtitle entry.
+static std::map<wxString, wxString> LoadOCRTextMap()
+{
+	std::map<wxString, wxString> m;
+	wxString ocr_path = g_work_dir + wxT("/ocr.txt");
+	if (!wxFileExists(ocr_path)) return m;
+
+	wxFFileInputStream ffin(ocr_path);
+	if (!ffin.IsOk()) return m;
+
+	wxTextInputStream tin(ffin);
+	while (!ffin.Eof()) {
+		wxString line = tin.ReadLine();
+		line.Trim(true).Trim(false);
+		if (line.empty()) continue;
+		int sep = line.Find(wxT('|'));
+		if (sep == wxNOT_FOUND) continue;
+		wxString key = line.Left(sep);
+		wxString val = line.Mid(sep + 1);
+		m[key] = val;
+	}
+	return m;
+}
+
+// Read VisionOCR text saved during search phase for a given image filename.
+// Returns true if OCR text was found, with the text stored in out_text.
+// line_sep controls how escaped \\n is expanded ("\n" for SRT, "\\N" for ASS).
+static bool ReadVisionOCRText(const std::map<wxString, wxString>& ocr_map,
+	const wxString& imageFileName, wxString& out_text,
+	const wxString& line_sep = wxT("\n"))
+{
+	if (!g_vision_ocr_enabled) return false;
+
+	wxString baseName = GetFileName(imageFileName);
+	auto it = ocr_map.find(baseName);
+	if (it == ocr_map.end()) return false;
+
+	out_text = it->second;
+	out_text.Replace(wxT("\\n"), line_sep);
+	out_text.Trim(true).Trim(false);
+	return !out_text.empty();
+}
+#endif
 
 int  g_ocr_threads = 8;
 
@@ -549,6 +596,10 @@ void COCRPanel::OnBnClickedCreateEmptySub(wxCommandEvent& event)
 		}
 	}	
 
+#ifdef __APPLE__
+	std::map<wxString, wxString> ocr_map = LoadOCRTextMap();
+#endif
+
 	wxString srt_sub;
 	for(k=0; k<(int)FileNamesVector.size(); k++)
 	{
@@ -573,12 +624,18 @@ void COCRPanel::OnBnClickedCreateEmptySub(wxCommandEvent& event)
 			else msec1 = str_int;
 		}
 
+#ifdef __APPLE__
+		if (!ReadVisionOCRText(ocr_map, FileNamesVector[k], SubStr)) {
+#endif
 		SubStr = g_DefStringForEmptySub;
 
 		if (g_DefStringForEmptySub.Contains("[sub_duration]"))
 		{			
 			SubStr.Replace("[sub_duration]", sec1 + "," + msec1);
 		}
+#ifdef __APPLE__
+		}
+#endif
 
 		srt_sub << (k+1) << wxT("\n") << Str << wxT("\n") << SubStr << "\n\n";
 	}
@@ -604,12 +661,18 @@ void COCRPanel::OnBnClickedCreateEmptySub(wxCommandEvent& event)
 			else msec1 = str_int;
 		}
 
+#ifdef __APPLE__
+		if (!ReadVisionOCRText(ocr_map, FileNamesVector[k], SubStr, wxT("\\N"))) {
+#endif
 		SubStr = g_DefStringForEmptySub;
 
 		if (g_DefStringForEmptySub.Contains("%sub_duration%"))
 		{
 			SubStr.Replace("%sub_duration%", sec1 + "," + msec1);
 		}
+#ifdef __APPLE__
+		}
+#endif
 
 		ass_sub << "Dialogue: 0," + VideoTimeToStr3(bt) + "," + VideoTimeToStr3(et) + ",Default,,0,0,0,," + SubStr + wxT("\n");
 	}
@@ -725,6 +788,10 @@ void COCRPanel::OnBnClickedCreateSubFromClearedTXTImages(wxCommandEvent& event)
 		}
 	}
 
+#ifdef __APPLE__
+	std::map<wxString, wxString> ocr_map = LoadOCRTextMap();
+#endif
+
 	wxString srt_sub;
 	for(k=0; k<(int)BT.size(); k++)
 	{
@@ -749,12 +816,18 @@ void COCRPanel::OnBnClickedCreateSubFromClearedTXTImages(wxCommandEvent& event)
 			else msec1 = str_int;
 		}
 
+#ifdef __APPLE__
+		if (!ReadVisionOCRText(ocr_map, FileNamesVector[k], SubStr)) {
+#endif
 		SubStr = g_DefStringForEmptySub;
 
 		if (g_DefStringForEmptySub.Contains("%sub_duration%"))
 		{			
 			SubStr.Replace("%sub_duration%", sec1 + "," + msec1);
 		}
+#ifdef __APPLE__
+		}
+#endif
 
 		srt_sub << (k+1) << wxT("\n") << Str << wxT("\n") << SubStr << "\n\n";
 	}
@@ -780,12 +853,18 @@ void COCRPanel::OnBnClickedCreateSubFromClearedTXTImages(wxCommandEvent& event)
 			else msec1 = str_int;
 		}
 
+#ifdef __APPLE__
+		if (!ReadVisionOCRText(ocr_map, FileNamesVector[k], SubStr, wxT("\\N"))) {
+#endif
 		SubStr = g_DefStringForEmptySub;
 
 		if (g_DefStringForEmptySub.Contains("%sub_duration%"))
 		{
 			SubStr.Replace("%sub_duration%", sec1 + "," + msec1);
 		}
+#ifdef __APPLE__
+		}
+#endif
 
 		ass_sub << "Dialogue: 0," + VideoTimeToStr3(bt) + "," + VideoTimeToStr3(et) + ",Default,,0,0,0,," + SubStr + wxT("\n");
 	}

@@ -221,6 +221,16 @@ void CSettingsPanel::Init()
 	m_pOI->AddProperty(g_cfg.m_ssp_oi_property_dump_debug_second_filtration_images, g_cfg.m_grid_debug_settings_colour, g_cfg.m_grid_debug_settings_colour, &g_show_sf_results);
 	m_pOI->AddProperty(g_cfg.m_ssp_oi_property_clear_test_images_folder, g_cfg.m_grid_debug_settings_colour, g_cfg.m_grid_debug_settings_colour, &g_clear_test_images_folder);
 	m_pOI->AddProperty(g_cfg.m_ssp_oi_property_show_transformed_images_only, g_cfg.m_grid_debug_settings_colour, g_cfg.m_grid_debug_settings_colour, &g_show_transformed_images_only);
+
+#ifdef __APPLE__
+	m_pOI->AddGroup(g_cfg.m_ssp_vision_ocr_group, g_cfg.m_grid_gropes_colour);
+	m_pOI->AddProperty(g_cfg.m_ssp_vision_ocr_enabled,            g_cfg.m_main_labels_background_colour, g_cfg.m_main_text_ctls_background_colour, &g_vision_ocr_enabled);
+	m_pOI->AddProperty(g_cfg.m_ssp_vision_ocr_accurate,           g_cfg.m_main_labels_background_colour, g_cfg.m_main_text_ctls_background_colour, &g_vision_ocr_accurate);
+	m_pOI->AddProperty(g_cfg.m_ssp_vision_ocr_language_correction,g_cfg.m_main_labels_background_colour, g_cfg.m_main_text_ctls_background_colour, &g_vision_ocr_language_correction);
+	m_pOI->AddProperty(g_cfg.m_ssp_vision_ocr_languages,          g_cfg.m_main_labels_background_colour, g_cfg.m_main_text_ctls_background_colour, &g_vision_ocr_languages);
+	m_pOI->AddProperty(g_cfg.m_ssp_vision_ocr_min_confidence,     g_cfg.m_main_labels_background_colour, g_cfg.m_main_text_ctls_background_colour, &g_vision_ocr_min_confidence, 0.0, 1.0);
+	m_pOI->AddProperty(g_cfg.m_ssp_vision_ocr_min_text_height,    g_cfg.m_main_labels_background_colour, g_cfg.m_main_text_ctls_background_colour, &g_vision_ocr_min_text_height, 0.0, 1.0);
+#endif
 	
 	SaveToReportLog("CSettingsPanel::Init(): init m_pOI m_ssp_oi_group_initial_image_processing...\n");
 	m_pOI->AddGroup(g_cfg.m_ssp_oi_group_initial_image_processing, g_cfg.m_grid_gropes_colour);

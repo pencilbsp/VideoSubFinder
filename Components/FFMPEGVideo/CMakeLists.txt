@@ -18,6 +18,8 @@ target_include_directories(FFMPEGVideo PUBLIC
 
 if (WIN32)
 else()
+	target_link_libraries(FFMPEGVideo PUBLIC PkgConfig::FFMPEG)
+
 target_compile_definitions(FFMPEGVideo PUBLIC
 	${wxWidgets_DEFINITIONS}
 	$<$<CONFIG:Debug>:${wxWidgets_DEFINITIONS_DEBUG}>)

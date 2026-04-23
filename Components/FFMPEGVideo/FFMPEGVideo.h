@@ -96,6 +96,8 @@ public:
 	int64_t m_cur_pts;
 	s64	m_dt_search;
 	s64	m_dt;
+	s64 m_fast_seek_pos = 0;
+	bool m_fast_seek_pending = false;
 
 	int m_frame_buffer_size = -1;
 	simple_buffer<u8> m_frame_buffer;
@@ -113,14 +115,6 @@ public:
 	int m_sws_src_w = 0;
 	int m_sws_src_h = 0;
 
-	// sws context for ROI-only ConvertToBGR path (zero-copy crop)
-	SwsContext* m_sws_roi_ctx = NULL;
-	AVPixelFormat m_sws_roi_src_fmt = AV_PIX_FMT_NONE;
-	int m_sws_roi_w = 0;
-	int m_sws_roi_h = 0;
-
-	// Cached BGR output buffer for ROI conversion (avoid per-frame heap alloc)
-	simple_buffer<u8> m_roi_bgr_buf;
 
 	//DWORD min_dt = 1000;
 	//DWORD max_dt = 0;
@@ -164,8 +158,10 @@ public:
 	void SetVideoWindowPosition(int left, int top, int width, int height, void *dc);
 
 	void ErrorMessage(wxString str);
+	void ApplyPendingFastSeek();
+	bool DecodeNextFrame(bool store_frame, bool refresh_frame, bool apply_pending_seek, s64 store_from_pos = -1);
 
 	int hw_decoder_init(AVCodecContext *ctx, const enum AVHWDeviceType type);
-	int decode_frame(s64& frame_pos);
+	int decode_frame(s64& frame_pos, bool store_frame, bool& frame_stored, s64 store_from_pos = -1);
 	int init_filters();
 };

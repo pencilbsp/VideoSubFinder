@@ -139,6 +139,15 @@ bool g_use_ocl = true;
 
 bool g_use_cuda_gpu = true;
 
+#ifdef __APPLE__
+bool	g_vision_ocr_enabled          = true;
+double	g_vision_ocr_min_confidence   = 0.3;
+bool	g_vision_ocr_accurate         = true;
+bool	g_vision_ocr_language_correction = true;
+wxString g_vision_ocr_languages      = wxT("zh-Hans,zh-Hant,en-US");
+double	g_vision_ocr_min_text_height  = 0.0;
+#endif
+
 wxArrayString g_use_filter_color;
 wxArrayString g_use_outline_filter_color;
 std::vector<color_range> g_color_ranges;

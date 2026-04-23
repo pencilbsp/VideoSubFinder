@@ -67,9 +67,7 @@ void CStaticText::SetBackgroundColour(wxColour& colour)
 
 wxSize CStaticText::GetOptimalSize(int add_gap)
 {
-	wxMemoryDC dc;
-	if (m_pFont) dc.SetFont(*m_pFont);
-	wxSize best_size = dc.GetMultiLineTextExtent(*m_p_label);
+	wxSize best_size = m_pST->GetBestSize();
 	wxSize cur_size = this->GetSize();
 	wxSize cur_client_size = this->GetClientSize();
 	wxSize opt_size = cur_size;
@@ -124,6 +122,7 @@ void CStaticText::RefreshData()
 void CStaticText::SetMinSize(wxSize& size)
 {
 	m_min_size = size;
+	wxPanel::SetMinSize(size);
 }
 
 void CStaticText::SetLabel(const wxString& label)
@@ -136,50 +135,29 @@ void CStaticText::SetLabel(const wxString& label)
 
 void CStaticText::OnSize(wxSizeEvent& event)
 {
-	int w, h, tw, th, x, y;
+	int w, h, th, y;
 	
     this->GetClientSize(&w, &h);
 
 	{
-		wxMemoryDC dc;
-		if (m_pFont) dc.SetFont(*m_pFont);
-		wxSize st_best_size = dc.GetMultiLineTextExtent(*m_p_label);
-		wxSize st_cur_size = m_pST->GetSize();
-		wxSize st_cur_client_size = m_pST->GetClientSize();
-		st_best_size.x += st_cur_size.x - st_cur_client_size.x;
-		st_best_size.y += st_cur_size.y - st_cur_client_size.y;
-
-		tw = st_best_size.x;
+		wxSize st_best_size = m_pST->GetBestSize();
 		th = st_best_size.y;
-	}
-
-	if ( m_text_style & wxALIGN_CENTER_HORIZONTAL )
-	{
-		x = (w - tw)/2;
-	}
-	else if ( m_text_style & wxALIGN_RIGHT )
-	{
-		x = w - tw;
-	}
-	else
-	{
-		x = 0;
 	}
 
 	if ( m_text_style & wxALIGN_CENTER_VERTICAL )
 	{
-		y = (h - th)/2;
+		y = std::max<int>((h - th) / 2, 0);
 	}
 	else if ( m_text_style & wxALIGN_BOTTOM )
 	{
-		y = h - th;
+		y = std::max<int>(h - th, 0);
 	}
 	else
 	{
 		y = 0;
 	}
 
-	m_pST->SetSize(x, y, tw, th);
+	m_pST->SetSize(0, y, w, th);
 
     event.Skip();
 }

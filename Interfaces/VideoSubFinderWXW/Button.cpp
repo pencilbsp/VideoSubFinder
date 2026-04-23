@@ -16,11 +16,13 @@
 
 #pragma once
 #include "Button.h"
+#include <wx/dcclient.h>
 #include <wx/dcmemory.h>
 #include <wx/sizer.h>
 
 BEGIN_EVENT_TABLE(CButton, CBitmapButton)
 	EVT_SIZE(CButton::OnSize)
+	EVT_PAINT(CButton::OnPaint)
 END_EVENT_TABLE()
 
 CButton::CButton(wxWindow* parent,
@@ -46,17 +48,10 @@ CButton::CButton(wxWindow* parent,
 	this->OnSize(event);
 }
 
-void CButton::FillButtonBitmap(wxBitmap& bmp, wxColour parent_colour, wxColour button_colour, wxColour button_border_colour)
+void CButton::DrawButton(wxDC& dc, int w, int h, wxColour parent_colour, wxColour button_colour, wxColour button_border_colour)
 {
-	int w, h;
 	int cr = 5;
 	int bw = 1;
-
-	w = bmp.GetWidth();
-	h = bmp.GetHeight();
-
-	wxMemoryDC dc;
-	dc.SelectObject(bmp);
 
 	dc.SetPen(wxPen(parent_colour));
 	dc.SetBrush(wxBrush(parent_colour));
@@ -81,12 +76,26 @@ void CButton::FillButtonBitmap(wxBitmap& bmp, wxColour parent_colour, wxColour b
 
 	if (m_p_label->size() > 0)
 	{
-		if (m_pFont) dc.SetFont(*m_pFont);		
+		if (m_pFont) dc.SetFont(*m_pFont);
 		if (m_p_text_colour) dc.SetTextForeground(*m_p_text_colour);
+		dc.SetBackgroundMode(wxTRANSPARENT);
 		wxSize ts = dc.GetMultiLineTextExtent(*m_p_label);
 
 		dc.DrawText(*m_p_label, (w - ts.x) / 2, (h - ts.y) / 2);
 	}
+}
+
+void CButton::FillButtonBitmap(wxBitmap& bmp, wxColour parent_colour, wxColour button_colour, wxColour button_border_colour)
+{
+	int w, h;
+
+	w = bmp.GetWidth();
+	h = bmp.GetHeight();
+
+	wxMemoryDC dc;
+	dc.SelectObject(bmp);
+
+	DrawButton(dc, w, h, parent_colour, button_colour, button_border_colour);
 }
 
 void CButton::OnSize(wxSizeEvent& event)
@@ -97,16 +106,38 @@ void CButton::OnSize(wxSizeEvent& event)
 
 	if ((w > 0) && (h > 0))
 	{
-		wxBitmap bmp(w, h), bmp_focused(w, h), bmp_selected(w, h);
-		FillButtonBitmap(bmp, m_pParent->GetBackgroundColour(), *m_p_button_color, *m_p_buttons_border_colour);
-		FillButtonBitmap(bmp_focused, m_pParent->GetBackgroundColour(), *m_p_button_color_focused, *m_p_buttons_border_colour);
-		FillButtonBitmap(bmp_selected, m_pParent->GetBackgroundColour(), *m_p_button_color_selected, *m_p_buttons_border_colour);
-		SetBitmaps(bmp.ConvertToImage(), bmp_focused.ConvertToImage(), bmp_selected.ConvertToImage());
-
 		this->Refresh(true);
 	}
 
 	event.Skip();
+}
+
+void CButton::OnPaint(wxPaintEvent& event)
+{
+	wxPaintDC dc(this);
+	int w, h;
+	this->GetClientSize(&w, &h);
+	if ((w <= 0) || (h <= 0))
+	{
+		return;
+	}
+
+	wxColour* p_button_colour = m_p_button_color;
+	if (m_bDown)
+	{
+		p_button_colour = m_p_button_color_selected;
+	}
+	else
+	{
+		wxPoint clao = GetClientAreaOrigin();
+		wxPoint mp = wxGetMousePosition() - GetScreenPosition() - clao;
+		if ((mp.x >= 0) && (mp.x < w) && (mp.y >= 0) && (mp.y < h))
+		{
+			p_button_colour = m_p_button_color_focused;
+		}
+	}
+
+	DrawButton(dc, w, h, m_pParent->GetBackgroundColour(), *p_button_colour, *m_p_buttons_border_colour);
 }
 
 void CButton::SetLabel(const wxString& label)
@@ -131,6 +162,7 @@ void CButton::SetTextColour(wxColour& colour)
 void CButton::SetMinSize(wxSize& size)
 {
 	m_min_size = size;
+	wxWindow::SetMinSize(size);
 }
 
 void CButton::RefreshData()

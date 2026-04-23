@@ -40,8 +40,8 @@ std::map<wxString, int> g_localization_id;
 std::map<int, wxString> g_id_localization;
 
 const int g_max_font_size = 80;
-const int g_def_main_text_font_size = 10;
-const int g_def_buttons_text_font_size = 13;
+const int g_def_main_text_font_size = 14;
+const int g_def_buttons_text_font_size = 16;
 
 // const DWORD _MMX_FEATURE_BIT = 0x00800000;
 // const DWORD _SSE2_FEATURE_BIT = 0x04000000;
@@ -1196,7 +1196,7 @@ void CMainFrame::OnPreviousFrame(wxCommandEvent& event)
 		Cur = m_pVideo->GetPos();
 		Cur -= m_dt;
 		if (Cur < 0) Cur = 0;
-		m_pVideo->SetPosFast(Cur);
+		m_pVideo->SetPos(Cur);
 	}
 }
 
@@ -1381,6 +1381,10 @@ void LoadSettings()
 	ReadProperty(g_general_settings, g_DL, "sub_frame_length");
 	ReadProperty(g_general_settings, g_tp, "text_percent");
 	ReadProperty(g_general_settings, g_mtpl, "min_text_len_in_percent");
+	if (g_mtpl == 0.022)
+	{
+		g_mtpl = 0.010;
+	}
 	ReadProperty(g_general_settings, g_veple, "vedges_points_line_error");
 	ReadProperty(g_general_settings, g_ilaple, "ila_points_line_error");
 
@@ -1423,6 +1427,15 @@ void LoadSettings()
 	ReadProperty(g_general_settings, g_remove_wide_symbols, "remove_wide_symbols");
 
 	ReadProperty(g_general_settings, g_hw_device, "hw_device");
+
+#ifdef __APPLE__
+	ReadProperty(g_general_settings, g_vision_ocr_enabled,             "vision_ocr_enabled");
+	ReadProperty(g_general_settings, g_vision_ocr_accurate,            "vision_ocr_accurate");
+	ReadProperty(g_general_settings, g_vision_ocr_language_correction, "vision_ocr_language_correction");
+	ReadProperty(g_general_settings, g_vision_ocr_languages,           "vision_ocr_languages");
+	ReadProperty(g_general_settings, g_vision_ocr_min_confidence,      "vision_ocr_min_confidence");
+	ReadProperty(g_general_settings, g_vision_ocr_min_text_height,     "vision_ocr_min_text_height");
+#endif
 
 	if (ReadProperty(g_general_settings, g_filter_descr, "filter_descr"))
 	{
@@ -1576,6 +1589,7 @@ void LoadLocaleSettings(wxString settings_path)
 	ReadProperty(g_locale_settings, g_cfg.m_button_clear_folders_text, "button_clear_folders_text");
 	ReadProperty(g_locale_settings, g_cfg.m_button_run_search_text, "button_run_search_text");
 	ReadProperty(g_locale_settings, g_cfg.m_button_run_search_stop_text, "button_run_search_stop_text");
+	ReadProperty(g_locale_settings, g_cfg.m_button_open_folder_text, "button_open_folder_text");
 	ReadProperty(g_locale_settings, g_cfg.m_button_test_text, "button_test_text");
 	ReadProperty(g_locale_settings, g_cfg.m_test_result_after_first_filtration_label, "test_result_after_first_filtration_label");
 	ReadProperty(g_locale_settings, g_cfg.m_test_result_after_second_filtration_label, "test_result_after_second_filtration_label");
@@ -1621,6 +1635,15 @@ void LoadLocaleSettings(wxString settings_path)
 	ReadProperty(g_locale_settings, g_cfg.m_label_filter_descr, "label_filter_descr");
 	ReadProperty(g_locale_settings, g_cfg.m_ssp_oi_property_use_ocl, "ssp_oi_property_use_ocl");
 	ReadProperty(g_locale_settings, g_cfg.m_ssp_oi_property_use_cuda_gpu, "ssp_oi_property_use_cuda_gpu");
+#ifdef __APPLE__
+	ReadProperty(g_locale_settings, g_cfg.m_ssp_vision_ocr_group,              "ssp_vision_ocr_group");
+	ReadProperty(g_locale_settings, g_cfg.m_ssp_vision_ocr_enabled,            "ssp_vision_ocr_enabled");
+	ReadProperty(g_locale_settings, g_cfg.m_ssp_vision_ocr_accurate,           "ssp_vision_ocr_accurate");
+	ReadProperty(g_locale_settings, g_cfg.m_ssp_vision_ocr_language_correction,"ssp_vision_ocr_language_correction");
+	ReadProperty(g_locale_settings, g_cfg.m_ssp_vision_ocr_languages,          "ssp_vision_ocr_languages");
+	ReadProperty(g_locale_settings, g_cfg.m_ssp_vision_ocr_min_confidence,     "ssp_vision_ocr_min_confidence");
+	ReadProperty(g_locale_settings, g_cfg.m_ssp_vision_ocr_min_text_height,    "ssp_vision_ocr_min_text_height");
+#endif
 
 	ReadProperty(g_locale_settings, g_cfg.m_label_use_filter_color, "label_use_filter_color");
 	ReadProperty(g_locale_settings, g_cfg.m_label_use_outline_filter_color, "label_use_outline_filter_color");
@@ -1856,6 +1879,15 @@ void SaveSettings()
 	WriteProperty(fout, g_remove_wide_symbols, "remove_wide_symbols");
 
 	WriteProperty(fout, g_hw_device, "hw_device");
+
+#ifdef __APPLE__
+	WriteProperty(fout, g_vision_ocr_enabled,             "vision_ocr_enabled");
+	WriteProperty(fout, g_vision_ocr_accurate,            "vision_ocr_accurate");
+	WriteProperty(fout, g_vision_ocr_language_correction, "vision_ocr_language_correction");
+	WriteProperty(fout, g_vision_ocr_languages,           "vision_ocr_languages");
+	WriteProperty(fout, g_vision_ocr_min_confidence,      "vision_ocr_min_confidence");
+	WriteProperty(fout, g_vision_ocr_min_text_height,     "vision_ocr_min_text_height");
+#endif
 
 	wxString wxstr_val;
 	(g_filter_descr == wxT("")) ? wxstr_val = wxT("none") : wxstr_val = g_filter_descr;

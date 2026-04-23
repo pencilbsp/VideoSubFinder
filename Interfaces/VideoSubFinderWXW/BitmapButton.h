@@ -61,7 +61,11 @@ public:
 
 private:
 	ShownBitmap m_ShownBitmap = ShownBitmap::Default;
+
+protected:
 	bool		m_bDown;
+
+private:
 	bool		m_bImagesDefined;
 	wxWindow*	m_parent;
 

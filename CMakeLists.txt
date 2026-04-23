@@ -34,9 +34,11 @@ else()
 	find_package(wxWidgets REQUIRED COMPONENTS core base aui)
 	find_package(OpenCV REQUIRED)
 	find_package(PkgConfig REQUIRED)
-	pkg_check_modules(FFMPEG REQUIRED libavcodec libavformat libavutil libswscale libavfilter)
+	pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET libavcodec libavformat libavutil libswscale libavfilter)
 	set(FFMPEG_INCLUDE_DIRS ${FFMPEG_INCLUDE_DIRS})
 	if(APPLE)
+		enable_language(OBJCXX)
+		set(CMAKE_OBJCXX_STANDARD 17)
 		add_compile_options(-fexperimental-library)
 		link_libraries(-lc++experimental)
 	endif()
@@ -65,6 +67,17 @@ install(TARGETS VideoSubFinderWXW DESTINATION VideoSubFinder)
 install(DIRECTORY Data/bitmaps/ DESTINATION VideoSubFinder/bitmaps)
 install(DIRECTORY Settings/Localization/ DESTINATION VideoSubFinder/settings FILES_MATCHING PATTERN "*.cfg")
 install(FILES Settings/general.cfg DESTINATION VideoSubFinder/settings)
+
+if(APPLE)
+    set(VSF_BUNDLE_SETTINGS_DIR "${CMAKE_SOURCE_DIR}/dist/VideoSubFinder.app/Contents/MacOS/settings")
+    add_custom_target(sync_locale ALL
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_SOURCE_DIR}/Settings/Localization"
+            "${VSF_BUNDLE_SETTINGS_DIR}"
+        COMMENT "Syncing locale files to app bundle"
+    )
+    add_dependencies(VideoSubFinderWXW sync_locale)
+endif()
 
 file(GLOB readme_files "Docs/readme*.txt")
 install(FILES ${readme_files} DESTINATION VideoSubFinder/Docs)

@@ -78,6 +78,15 @@ extern int		g_dmaxy;
 extern bool		g_use_ocl;
 extern bool		g_use_cuda_gpu;
 
+#ifdef __APPLE__
+extern bool		g_vision_ocr_enabled;
+extern double	g_vision_ocr_min_confidence;
+extern bool		g_vision_ocr_accurate;
+extern bool		g_vision_ocr_language_correction;
+extern wxString	g_vision_ocr_languages;
+extern double	g_vision_ocr_min_text_height;
+#endif
+
 extern wxArrayString g_use_filter_color;
 extern wxArrayString g_use_outline_filter_color;
 extern std::vector<color_range> g_color_ranges;

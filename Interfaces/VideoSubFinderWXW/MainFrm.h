@@ -22,6 +22,7 @@
 #include <wx/timer.h>
 #include <wx/filename.h>
 #include <wx/cmdline.h>
+#include <map>
 #include <time.h>
 #include "DataTypes.h"
 #include "MyResource.h"
@@ -142,6 +143,15 @@ public:
 	wxString	m_ssp_oi_group_global_image_processing_settings;
 	wxString	m_ssp_oi_property_use_ocl;
 	wxString	m_ssp_oi_property_use_cuda_gpu;
+#ifdef __APPLE__
+	wxString	m_ssp_vision_ocr_group;
+	wxString	m_ssp_vision_ocr_enabled;
+	wxString	m_ssp_vision_ocr_accurate;
+	wxString	m_ssp_vision_ocr_language_correction;
+	wxString	m_ssp_vision_ocr_languages;
+	wxString	m_ssp_vision_ocr_min_confidence;
+	wxString	m_ssp_vision_ocr_min_text_height;
+#endif
 	wxString	m_label_use_filter_color;
 	wxString	m_label_use_outline_filter_color;
 	wxString	m_label_dL_color;
@@ -312,6 +322,7 @@ public:
 	wxString	m_button_clear_folders_text;
 	wxString	m_button_run_search_text;
 	wxString	m_button_run_search_stop_text;
+	wxString	m_button_open_folder_text;
 	wxString	m_button_test_text;
 	wxString	m_test_result_after_first_filtration_label;
 	wxString	m_test_result_after_second_filtration_label;

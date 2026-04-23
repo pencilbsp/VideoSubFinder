@@ -91,6 +91,8 @@
 #define ID_LBL_IB                       1268
 #define ID_IBOX	                        1269
 
+#define ID_BTN_OPEN_FOLDER              1284
+
 #define ID_BTN_CLEAR	                1270
 
 #define ID_SP_LEFT						1271

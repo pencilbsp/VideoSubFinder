@@ -24,6 +24,7 @@
 #include "Button.h"
 #include "StaticText.h"
 #include "TextCtrl.h"
+#include "Choice.h"
 #include "MyResource.h"
 
 class CMainFrame;
@@ -44,6 +45,9 @@ public:
 
 	CButton	*m_pClear;
 	CButton	*m_pRun;
+	CButton	*m_pOpenFolder;
+	CChoice	*m_pFolderChoice;
+	int		 m_folderChoiceIdx = 0;
 	
 	wxPanel		*m_pP1;
 
@@ -64,7 +68,11 @@ public:
 	//HBRUSH OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor);
 	void OnBnClickedRun(wxCommandEvent& event);
 	void OnBnClickedClear(wxCommandEvent& event);
+	void OnBnClickedOpenFolder(wxCommandEvent& event);
+	wxArrayString GetFolderChoiceItems();
 	void OnTimeTextEnter(wxCommandEvent& evt);
+	void OnBeginTimeLabelClick(wxMouseEvent& event);
+	void OnEndTimeLabelClick(wxMouseEvent& event);
 	void ThreadSearchSubtitlesEnd(wxCommandEvent& event);
 	void UpdateSize() override;
 	void RefreshData() override;

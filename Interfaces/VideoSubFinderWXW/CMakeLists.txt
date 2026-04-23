@@ -74,16 +74,10 @@ else()
 		${CUDAKernels_LIB}
 		${wxWidgets_LIBRARIES}
 		${OpenCV_LIBS}
-		avcodec
-		avformat
-		avutil
-		swscale
-		avfilter
 		tbb
 	)
 	if(NOT APPLE)
 		target_link_libraries(VideoSubFinderWXW PUBLIC X11)
 	endif()
 endif (WIN32)
-
 

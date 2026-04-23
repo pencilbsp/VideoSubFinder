@@ -16,6 +16,7 @@
 
 #pragma once
 #include <wx/button.h>
+#include <wx/dc.h>
 #include "Control.h"
 #include "BitmapButton.h"
 
@@ -50,6 +51,7 @@ public:
 	void SetMinSize(wxSize& size);
 
 	void OnSize(wxSizeEvent& event);
+	void OnPaint(wxPaintEvent& event);
 	
 private:
 	wxSize m_min_size;
@@ -64,6 +66,7 @@ private:
 	const wxString* m_p_label;
 
 	void FillButtonBitmap(wxBitmap& bmp, wxColour parent_colour, wxColour button_colour, wxColour button_border_colour);
+	void DrawButton(wxDC& dc, int w, int h, wxColour parent_colour, wxColour button_colour, wxColour button_border_colour);
 
 	DECLARE_EVENT_TABLE()
 };

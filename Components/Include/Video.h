@@ -17,6 +17,7 @@
 #pragma once
 
 #include "DataTypes.h"
+#include <atomic>
 #include <fstream>
 
 using namespace std;
@@ -40,7 +41,7 @@ public:
 	}
 	
 public:
-	bool		m_play_video;
+	std::atomic_bool m_play_video;
 
 	wxString	m_MovieName;
 	bool		m_Inited;
