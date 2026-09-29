@@ -537,7 +537,17 @@ bool FFMPEGVideo::OpenMovie(wxString csMovieName, void *pVideoWindow, int device
 			return false;
 		}
 		video_stream = ret;
+		video = input_ctx->streams[video_stream];
 		SaveToReportLog(wxString::Format(wxT("FFMPEGVideo::OpenMovie(): av_find_best_stream passed\nvideo_stream: #%u\n"), video_stream));
+
+		if (video->codecpar->codec_id == AV_CODEC_ID_AV1) {
+			const AVCodec* dav1d_dec = avcodec_find_decoder_by_name("libdav1d");
+			if (dav1d_dec) {
+				decoder = dav1d_dec;
+				SaveToReportLog(wxT("FFMPEGVideo::OpenMovie(): using libdav1d for AV1 stream\n"));
+			}
+		}
+		SaveToReportLog(wxString::Format(wxT("FFMPEGVideo::OpenMovie(): selected decoder: %s\n"), wxString(decoder ? decoder->name : "none")));
 
 		// create decoding context
 		if (!(decoder_ctx = avcodec_alloc_context3(decoder)))
@@ -549,8 +559,6 @@ bool FFMPEGVideo::OpenMovie(wxString csMovieName, void *pVideoWindow, int device
 			return false;
 		}
 		SaveToReportLog(wxT("FFMPEGVideo::OpenMovie(): avcodec_alloc_context3 passed\n"));
-
-		video = input_ctx->streams[video_stream];
 
 		if (avcodec_parameters_to_context(decoder_ctx, video->codecpar) < 0)
 		{
@@ -625,6 +633,22 @@ bool FFMPEGVideo::OpenMovie(wxString csMovieName, void *pVideoWindow, int device
 		video_stream = ret;
 		SaveToReportLog(wxString::Format(wxT("FFMPEGVideo::OpenMovie(): av_find_best_stream passed\nvideo_stream: #%u\n"), video_stream));
 
+		video = input_ctx->streams[video_stream];
+
+		// AV1 VideoToolbox decoding is only available on a subset of Apple
+		// hardware and macOS versions.  The built-in FFmpeg AV1 decoder works on
+		// all supported systems, so select it instead of failing to open the
+		// movie when VideoToolbox is selected.
+		if (video->codecpar->codec_id == AV_CODEC_ID_AV1) {
+			SaveToReportLog(wxT("FFMPEGVideo::OpenMovie(): AV1 stream detected; falling back to the CPU decoder.\n"));
+			CloseMovie();
+			wxString hw_device = g_hw_device;
+			g_hw_device = wxT("cpu");
+			bool result = OpenMovie(csMovieName, pVideoWindow, device_type);
+			g_hw_device = hw_device;
+			return result;
+		}
+
 		hw_pix_fmt = AV_PIX_FMT_NONE;
 
 		for (i = 0;; i++) {
@@ -663,7 +687,6 @@ bool FFMPEGVideo::OpenMovie(wxString csMovieName, void *pVideoWindow, int device
 		}
 		SaveToReportLog(wxT("FFMPEGVideo::OpenMovie(): avcodec_alloc_context3 passed\n"));
 
-		video = input_ctx->streams[video_stream];
 		if (avcodec_parameters_to_context(decoder_ctx, video->codecpar) < 0)
 		{
 			wxString msg;

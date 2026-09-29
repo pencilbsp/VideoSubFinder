@@ -31,7 +31,13 @@ set(FFMPEG_CONFIGURE_ARGS
     --disable-postproc
     --disable-encoders
     --disable-muxers
+    # AV1 decoding via libdav1d (fast, highly optimized ARM NEON software decoder).
+    # In FFmpeg 6.1, native "av1" decoder only works with hwaccel (not VideoToolbox),
+    # so libdav1d is required for AV1 decoding on macOS.
+    --enable-libdav1d
+    --enable-decoder=libdav1d
+    --enable-parser=av1
     --enable-videotoolbox
-    --enable-hwaccel=h264_videotoolbox,hevc_videotoolbox,vp9_videotoolbox,av1_videotoolbox
+    --enable-hwaccel=h264_videotoolbox,hevc_videotoolbox,vp9_videotoolbox
     --disable-iconv
 )

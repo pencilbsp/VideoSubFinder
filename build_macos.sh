@@ -30,9 +30,9 @@ parse_cmake_set() {
     local file="$1" varname="$2"
     # Extract the value of a set(...) call; strips cmake # comments and extra whitespace
     perl -0777 -ne "
+        s/#[^\n]*//g;                  # strip cmake comments before matching set()
         if (/set\(\s*${varname}\s+(.*?)\s*\)/s) {
             my \$val = \$1;
-            \$val =~ s/#[^\n]*//g;      # strip cmake-style comments
             \$val =~ s/\"([^\"]*)\"/\$1/g; # unquote \"value\"
             \$val =~ s/\s+/ /g;
             \$val =~ s/^\s+|\s+\$//g;
@@ -117,12 +117,15 @@ check_dep git       git
 check_dep pkg-config pkg-config
 check_dep wx-config wxwidgets
 pkg-config --exists tbb || error "TBB not found. Install with: brew install tbb"
+pkg-config --exists dav1d || error "dav1d not found. Install with: brew install dav1d"
 
 CPU_COUNT="$(sysctl -n hw.ncpu 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)"
 mkdir -p "$DEPS_DIR"
 
 # ── Build minimal FFmpeg ──────────────────────────────────────────────────────
-FFMPEG_STAMP="$FFMPEG_INSTALL/.built_${FFMPEG_VERSION}"
+FFMPEG_CONF_FLAGS="$(parse_cmake_set "$DEPS_CMAKE_DIR/ffmpeg.cmake" FFMPEG_CONFIGURE_ARGS)"
+FFMPEG_CONFIG_HASH="$(printf '%s' "$FFMPEG_CONF_FLAGS" | shasum -a 256 | cut -c1-12)"
+FFMPEG_STAMP="$FFMPEG_INSTALL/.built_${FFMPEG_VERSION}_${FFMPEG_CONFIG_HASH}"
 
 if [ ! -f "$FFMPEG_STAMP" ]; then
     info "Building FFmpeg $FFMPEG_VERSION (one-time, ~3 min)..."
@@ -133,10 +136,10 @@ if [ ! -f "$FFMPEG_STAMP" ]; then
         git clone --depth=1 --branch "$FFMPEG_GIT_TAG" "$FFMPEG_GIT_URL" "$FFMPEG_SRC"
     fi
 
-    FFMPEG_CONF_FLAGS="$(parse_cmake_set "$DEPS_CMAKE_DIR/ffmpeg.cmake" FFMPEG_CONFIGURE_ARGS)"
-
     pushd "$FFMPEG_SRC" > /dev/null
+    BREW_PREFIX="$(brew --prefix 2>/dev/null || echo /opt/homebrew)"
     # shellcheck disable=SC2086  — intentional word-split of flag string
+    PKG_CONFIG_PATH="$BREW_PREFIX/lib/pkgconfig:${PKG_CONFIG_PATH:-}" \
     ./configure --prefix="$FFMPEG_INSTALL" $FFMPEG_CONF_FLAGS
     make -j"$CPU_COUNT"
     make install
@@ -278,8 +281,13 @@ if command -v dylibbundler &>/dev/null; then
         -s "$FFMPEG_INSTALL/lib"
         -s "$OPENCV_INSTALL/lib"
     )
-    if command -v brew &>/dev/null && brew --prefix gcc &>/dev/null 2>/dev/null; then
-        DYLIBBUNDLER_ARGS+=(-s "$(brew --prefix gcc)/lib/gcc/current")
+    if command -v brew &>/dev/null; then
+        BREW_PREFIX="$(brew --prefix)"
+        [ -d "$BREW_PREFIX/lib" ] && DYLIBBUNDLER_ARGS+=(-s "$BREW_PREFIX/lib")
+        [ -d "$BREW_PREFIX/opt/dav1d/lib" ] && DYLIBBUNDLER_ARGS+=(-s "$BREW_PREFIX/opt/dav1d/lib")
+        if brew --prefix gcc &>/dev/null 2>/dev/null; then
+            DYLIBBUNDLER_ARGS+=(-s "$(brew --prefix gcc)/lib/gcc/current")
+        fi
     fi
 
     OPENCV_RPATH_WARNING_RE="^/!\\\\ WARNING : can't get path for '@rpath/libopencv_.*\\.dylib'$"
